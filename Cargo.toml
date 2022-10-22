@@ -1,0 +1,41 @@
+[package]
+name = "cargo-smart-release"
+version = "0.13.0"
+authors = ["Sebastian Thiel <sebastian.thiel@icloud.com>"]
+repository = "https://github.com/Byron/gitoxide"
+description = "Cargo subcommand for fearlessly releasing crates in workspaces."
+license = "MIT OR Apache-2.0"
+edition = "2018"
+categories = ["development-tools::cargo-plugins"]
+keywords = ["cargo"]
+include = ["src/**/*", "README.md", "CHANGELOG.md"]
+
+[[bin]]
+name = "publish-cool-workspace"
+path = "src/cli/main-smart-release.rs"
+test = false
+
+[features]
+cache-efficiency-debug = ["git-repository/cache-efficiency-debug"]
+
+[dependencies]
+git-repository = { version = "^0.25.0", default-features = false, features = ["max-performance-safe"] }
+anyhow = "1.0.42"
+clap = { version = "3.2.5", features = ["derive", "cargo"] }
+env_logger = { version = "0.9.0", default-features = false, features = ["humantime", "termcolor", "atty"] }
+cargo_metadata = "0.15.0"
+log = "0.4.14"
+toml_edit = "0.14.0"
+semver = "1.0.4"
+crates-index = "0.18.9"
+cargo_toml = "0.11.4"
+nom = { version = "7", default-features = false, features = ["std"]}
+git-conventional = "0.12.0"
+time = "0.3.2"
+pulldown-cmark = "0.9.0"
+bitflags = "1.3.2"
+home = "0.5.3"
+
+[dev-dependencies]
+insta = "1.8.0"
+git-testtools = { version="0.9.0" }
