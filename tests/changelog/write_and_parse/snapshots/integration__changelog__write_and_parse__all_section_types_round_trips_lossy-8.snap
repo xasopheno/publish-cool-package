@@ -1,5 +1,6 @@
 ---
-source: cargo-smart-release/tests/changelog/write_and_parse/mod.rs
+source: cool-workspace/tests/changelog/write_and_parse/mod.rs
+publish-cool-workspace/tests/changelog/write_and_parse/mod.rs
 expression: buf
 ---
 #### 1.0.2-beta.2 (1970-01-01)

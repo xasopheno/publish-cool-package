@@ -128,7 +128,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cargo-smart-release"
+name = "cool-workspace"
 version = "0.13.0"
 dependencies = [
  "anyhow",

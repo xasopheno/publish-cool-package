@@ -1,8 +1,10 @@
-# `cargo smart-release`
+# `publish-cool-package`
+
+# This is a fork! 
+This is a fork of gitoxide/cargo-smart-release. You probably don't want to use this package. This is written to support a specific release flow.
+https://github.com/Byron/gitoxide
 
 Fearlessly release workspace crates and with beautiful semi-handcrafted changelogs.
-
-[![asciicast](https://asciinema.org/a/65uPfzoWxGac43zEZ1gQ1yVVe.svg)](https://asciinema.org/a/65uPfzoWxGac43zEZ1gQ1yVVe)
 
 ## Key Features
 
@@ -42,7 +44,7 @@ There are various other options that shouldn't be needed in the common case, use
 Via `cargo`, which can be obtained using [rustup][rustup]
 
 ```
-cargo install cargo-smart-release
+cargo install cool-workspace
 ```
 
 ## Features
