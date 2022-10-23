@@ -111,7 +111,7 @@ fn to_bump_spec(spec: &str) -> anyhow::Result<publish_cool_workspace::version::B
                 .split(".")
                 .map(|v| {
                     dbg!(v);
-                    v.trim().parse::<u64>().unwrap()
+                    v.replace("v", "").trim().parse::<u64>().unwrap()
                 })
                 .collect();
             dbg!(&found);

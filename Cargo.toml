@@ -1,6 +1,6 @@
 [package]
 name = "publish-cool-workspace"
-version = "0.13.0"
+version = "0.13.1"
 authors = ["Danny Meyer <danny@xasopheno.com>"]
 repository = "https://github.com/xasopheno/publish-cool-package"
 description = "Cargo subcommand for releasing crates in workspaces."
