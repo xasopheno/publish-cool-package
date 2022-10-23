@@ -1,13 +1,11 @@
 [package]
-name = "cool-workspace"
+name = "publish-cool-workspace"
 version = "0.13.0"
-authors = ["Sebastian Thiel <sebastian.thiel@icloud.com>"]
-repository = "https://github.com/Byron/gitoxide"
-description = "Cargo subcommand for fearlessly releasing crates in workspaces."
+authors = ["Danny Meyer <danny@xasopheno.com>"]
+repository = "https://github.com/xasopheno/publish-cool-package"
+description = "Cargo subcommand for releasing crates in workspaces."
 license = "MIT OR Apache-2.0"
-edition = "2018"
-categories = ["development-tools::cargo-plugins"]
-keywords = ["cargo"]
+edition = "2021"
 include = ["src/**/*", "README.md", "CHANGELOG.md"]
 
 [[bin]]

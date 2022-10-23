@@ -2,7 +2,7 @@ mod options;
 use clap::Parser;
 use options::{Args, SubCommands};
 
-use cargo_smart_release::command;
+use publish_cool_workspace::command;
 
 fn main() -> anyhow::Result<()> {
     git_repository::interrupt::init_handler(|| {})?;
@@ -63,9 +63,11 @@ fn main() -> anyhow::Result<()> {
                 command::release::Options {
                     dry_run: !execute,
                     verbose,
-                    conservative_pre_release_version_handling: !no_conservative_pre_release_version_handling,
+                    conservative_pre_release_version_handling:
+                        !no_conservative_pre_release_version_handling,
                     bump_when_needed: !no_bump_on_demand,
-                    isolate_dependencies_from_breaking_changes: !no_isolate_dependencies_from_breaking_changes,
+                    isolate_dependencies_from_breaking_changes:
+                        !no_isolate_dependencies_from_breaking_changes,
                     allow_dirty,
                     ignore_instability,
                     skip_publish: no_publish,
@@ -95,8 +97,8 @@ fn main() -> anyhow::Result<()> {
 
 const DEFAULT_BUMP_SPEC: &str = "auto";
 
-fn to_bump_spec(spec: &str) -> anyhow::Result<cargo_smart_release::version::BumpSpec> {
-    use cargo_smart_release::version::BumpSpec::*;
+fn to_bump_spec(spec: &str) -> anyhow::Result<publish_cool_workspace::version::BumpSpec> {
+    use publish_cool_workspace::version::BumpSpec::*;
     Ok(match spec {
         "patch" | "Patch" => Patch,
         "minor" | "Minor" => Minor,
@@ -120,8 +122,8 @@ fn to_bump_spec(spec: &str) -> anyhow::Result<cargo_smart_release::version::Bump
 
 fn names_to_segment_selection(
     names: &[String],
-) -> anyhow::Result<cargo_smart_release::changelog::section::segment::Selection> {
-    use cargo_smart_release::changelog::section::segment::Selection;
+) -> anyhow::Result<publish_cool_workspace::changelog::section::segment::Selection> {
+    use publish_cool_workspace::changelog::section::segment::Selection;
     Ok(if names.is_empty() {
         Selection::all()
     } else {
@@ -140,9 +142,13 @@ fn names_to_segment_selection(
 }
 
 fn init_logging(verbose: bool) {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(if verbose { "trace" } else { "info" }))
-        .format_module_path(false)
-        .format_target(false)
-        .format_timestamp(None)
-        .init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(if verbose {
+        "trace"
+    } else {
+        "info"
+    }))
+    .format_module_path(false)
+    .format_target(false)
+    .format_timestamp(None)
+    .init();
 }

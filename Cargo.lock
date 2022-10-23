@@ -128,30 +128,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cool-workspace"
-version = "0.13.0"
-dependencies = [
- "anyhow",
- "bitflags",
- "cargo_metadata",
- "cargo_toml",
- "clap",
- "crates-index",
- "env_logger",
- "git-conventional",
- "git-repository",
- "git-testtools",
- "home",
- "insta",
- "log",
- "nom",
- "pulldown-cmark",
- "semver",
- "time",
- "toml_edit",
-]
-
-[[package]]
 name = "cargo_metadata"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1621,6 +1597,30 @@ checksum = "cd4e8b029f29b4eb8f95315957fb7ac8a8fd1924405fadf885b0e208fe34ba39"
 dependencies = [
  "bytesize",
  "human_format",
+]
+
+[[package]]
+name = "publish-cool-workspace"
+version = "0.13.0"
+dependencies = [
+ "anyhow",
+ "bitflags",
+ "cargo_metadata",
+ "cargo_toml",
+ "clap",
+ "crates-index",
+ "env_logger",
+ "git-conventional",
+ "git-repository",
+ "git-testtools",
+ "home",
+ "insta",
+ "log",
+ "nom",
+ "pulldown-cmark",
+ "semver",
+ "time",
+ "toml_edit",
 ]
 
 [[package]]
