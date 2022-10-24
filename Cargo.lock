@@ -1601,7 +1601,7 @@ dependencies = [
 
 [[package]]
 name = "publish-cool-workspace"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "anyhow",
  "bitflags",
