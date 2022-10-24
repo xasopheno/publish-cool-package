@@ -27,12 +27,13 @@ impl std::fmt::Display for BumpSpec {
 }
 
 #[allow(clippy::ptr_arg)]
-pub(crate) fn select_publishee_bump_spec(name: &String, ctx: &Context) -> BumpSpec {
-    if ctx.crate_names.contains(name) {
-        ctx.bump
-    } else {
-        ctx.bump_dependencies
-    }
+pub(crate) fn select_publishee_bump_spec(_name: &String, ctx: &Context) -> BumpSpec {
+    ctx.bump
+    // if ctx.crate_names.contains(name) {
+    // ctx.bump
+    // } else {
+    // ctx.bump_dependencies
+    // }
 }
 
 /// Returns true if this would be a breaking change for `v`.
