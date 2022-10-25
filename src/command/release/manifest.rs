@@ -15,7 +15,10 @@ use crate::{
     changelog,
     changelog::{write::Linkables, Section},
     traverse::Dependency,
-    utils::{names_and_versions, try_to_published_crate_and_new_version, version_req_unset_or_default, will},
+    utils::{
+        names_and_versions, try_to_published_crate_and_new_version, version_req_unset_or_default,
+        will,
+    },
     version, ChangeLog,
 };
 
@@ -24,12 +27,17 @@ pub struct Outcome<'repo, 'meta> {
     pub section_by_package: BTreeMap<&'meta str, changelog::Section>,
 }
 
-pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_and_handle_changelog<'repo, 'meta>(
+pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_and_handle_changelog<
+    'repo,
+    'meta,
+>(
     crates: &[Dependency<'meta>],
     opts: Options,
     ctx: &'repo Context,
 ) -> anyhow::Result<Outcome<'repo, 'meta>> {
-    let Options { dry_run, changelog, .. } = opts;
+    let Options {
+        dry_run, changelog, ..
+    } = opts;
     let crates_and_versions_to_be_published: Vec<_> = crates
         .iter()
         .filter_map(try_to_published_crate_and_new_version)
@@ -48,12 +56,21 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
 
     let crates_with_version_change: Vec<_> = crates
         .iter()
-        .filter_map(|c| c.mode.version_adjustment_bump().map(|b| (c.package, &b.next_release)))
+        .filter_map(|c| {
+            c.mode
+                .version_adjustment_bump()
+                .map(|b| (c.package, &b.next_release))
+        })
         .collect();
     for (package, possibly_new_version) in crates
         .iter()
         .filter(|c| c.mode.manifest_will_change())
-        .map(|c| (c.package, c.mode.version_adjustment_bump().map(|b| &b.next_release)))
+        .map(|c| {
+            (
+                c.package,
+                c.mode.version_adjustment_bump().map(|b| &b.next_release),
+            )
+        })
     {
         let mut entry_store;
         let lock = match locks_by_manifest_path.entry(&package.manifest_path) {
@@ -61,11 +78,13 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
                 entry_store = entry;
                 entry_store.get_mut()
             }
-            Entry::Vacant(entry) => entry.insert(git_repository::lock::File::acquire_to_update_resource(
-                &package.manifest_path,
-                git_repository::lock::acquire::Fail::Immediately,
-                None,
-            )?),
+            Entry::Vacant(entry) => {
+                entry.insert(git_repository::lock::File::acquire_to_update_resource(
+                    &package.manifest_path,
+                    git_repository::lock::acquire::Fail::Immediately,
+                    None,
+                )?)
+            }
         };
         made_change |= set_version_and_update_package_dependency(
             package,
@@ -157,8 +176,11 @@ fn commit_locks_and_generate_bail_message(
 
         packages_whose_changelogs_need_edits
             .and_then(|logs| {
-                let names_of_crates_in_need_of_changelog_entry =
-                    logs.iter().map(|p| p.name.as_str()).collect::<Vec<_>>().join(", ");
+                let names_of_crates_in_need_of_changelog_entry = logs
+                    .iter()
+                    .map(|p| p.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 if skip_publish {
                     log::warn!(
                         "Please consider creating changelog entries for crate{}: {}",
@@ -175,7 +197,11 @@ fn commit_locks_and_generate_bail_message(
             })
             .or_else(|| {
                 packages_which_might_be_fully_generated.and_then(|packages| {
-                    let crate_names = packages.iter().map(|p| p.name.as_str()).collect::<Vec<_>>().join(", ");
+                    let crate_names = packages
+                        .iter()
+                        .map(|p| p.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ");
                     (!allow_fully_generated_changelogs).then(|| {
                         format!(
                             "{} edits by hand to avoid being entirely generated: {}",
@@ -193,13 +219,16 @@ fn commit_locks_and_generate_bail_message(
         let crate_names = |ids: &[usize]| {
             ids.iter()
                 .filter_map(|idx| {
-                    pending_changelogs.iter().enumerate().find_map(|(pidx, (p, _, _))| {
-                        if *idx == pidx {
-                            Some(p.name.as_str())
-                        } else {
-                            None
-                        }
-                    })
+                    pending_changelogs
+                        .iter()
+                        .enumerate()
+                        .find_map(|(pidx, (p, _, _))| {
+                            if *idx == pidx {
+                                Some(p.name.as_str())
+                            } else {
+                                None
+                            }
+                        })
                 })
                 .collect::<Vec<_>>()
         };
@@ -256,7 +285,9 @@ fn commit_locks_and_generate_bail_message(
 fn preview_changelogs(
     ctx: &Context,
     pending_changelogs: &[(&Package, bool, File)],
-    Options { dry_run, preview, .. }: Options,
+    Options {
+        dry_run, preview, ..
+    }: Options,
 ) -> anyhow::Result<()> {
     if !pending_changelogs.is_empty() && preview && !dry_run {
         let additional_info =
@@ -282,7 +313,8 @@ fn preview_changelogs(
             );
             bat.display_to_tty(
                 lock.lock_path(),
-                lock.resource_path().strip_prefix(&ctx.base.root.to_path_buf())?,
+                lock.resource_path()
+                    .strip_prefix(&ctx.base.root.to_path_buf())?,
                 additional_info,
             )?;
         }
@@ -303,7 +335,9 @@ fn generate_commit_message(
     num_locks: usize,
     pending_changelogs: &[(&Package, bool, File)],
     Options {
-        skip_publish, dry_run, ..
+        skip_publish,
+        dry_run,
+        ..
     }: Options,
 ) -> String {
     let message = format!(
@@ -339,10 +373,16 @@ fn generate_commit_message(
         num_locks,
         match (
             pending_changelogs.len(),
-            pending_changelogs.iter().fold(0usize, |mut acc, (_, _, lock)| {
-                acc += if !lock.resource_path().is_file() { 1 } else { 0 };
-                acc
-            })
+            pending_changelogs
+                .iter()
+                .fold(0usize, |mut acc, (_, _, lock)| {
+                    acc += if !lock.resource_path().is_file() {
+                        1
+                    } else {
+                        0
+                    };
+                    acc
+                })
         ) {
             (0, _) => Cow::Borrowed(""),
             (num_logs, num_new) => format!(
@@ -397,14 +437,22 @@ fn gather_changelog_data<'a, 'meta>(
             None,
         )?;
         let previous = locks_by_manifest_path.insert(&publishee.manifest_path, lock);
-        assert!(previous.is_none(), "publishees are unique so insertion always happens");
+        assert!(
+            previous.is_none(),
+            "publishees are unique so insertion always happens"
+        );
         if let Some(history) = ctx.base.history.as_ref() {
             let changelog::init::Outcome {
                 mut log,
                 state: log_init_state,
                 previous_content,
                 mut lock,
-            } = ChangeLog::for_package_with_write_lock(publishee, history, &ctx.base, generator_segments)?;
+            } = ChangeLog::for_package_with_write_lock(
+                publishee,
+                history,
+                &ctx.base,
+                generator_segments,
+            )?;
 
             log::info!(
                 "{} {} changelog for '{}'.",
@@ -461,7 +509,9 @@ fn gather_changelog_data<'a, 'meta>(
                     }
                     *date = Some(next_commit_date);
                 }
-                changelog::Section::Verbatim { .. } => unreachable!("BUG: checked in prior function"),
+                changelog::Section::Verbatim { .. } => {
+                    unreachable!("BUG: checked in prior function")
+                }
             };
             {
                 let (_, recent_release_section_in_log) = log.most_recent_release_section_mut();
@@ -486,9 +536,12 @@ fn gather_changelog_data<'a, 'meta>(
                 },
             )?;
             lock.with_mut(|file| file.write_all(write_buf.as_bytes()))?;
-            *made_change |= previous_content.map(|previous| write_buf != previous).unwrap_or(true);
+            *made_change |= previous_content
+                .map(|previous| write_buf != previous)
+                .unwrap_or(true);
             pending_changelogs.push((publishee, log_init_state.is_modified(), lock));
-            release_section_by_publishee.insert(publishee.name.as_str(), log.take_recent_release_section());
+            release_section_by_publishee
+                .insert(publishee.name.as_str(), log.take_recent_release_section());
         }
     }
     Ok(out)
@@ -531,11 +584,14 @@ fn set_version_and_update_package_dependency(
                     .and_then(|name| name.as_inline_table_mut())
                     .and_then(|name_table| name_table.get_mut("version"))
                 {
-                    let version_req = VersionReq::parse(current_version_req.as_str().expect("versions are strings"))?;
-                    let force_update = conservative_pre_release_version_handling
-                        && version::is_pre_release(new_version) // setting the lower bound unnecessarily can be harmful
-                        // don't claim to be conservative if this is necessary anyway
-                        && req_as_version(&version_req).map(|req_version|!version::rhs_is_breaking_bump_for_lhs(&req_version, new_version)).unwrap_or(false);
+                    let version_req = VersionReq::parse(
+                        current_version_req.as_str().expect("versions are strings"),
+                    )?;
+                    let force_update = true;
+                    conservative_pre_release_version_handling
+                    && version::is_pre_release(new_version) // setting the lower bound unnecessarily can be harmful
+                    // don't claim to be conservative if this is necessary anyway
+                    && req_as_version(&version_req).map(|req_version|!version::rhs_is_breaking_bump_for_lhs(&req_version, new_version)).unwrap_or(false);
                     if !version_req.matches(new_version) || force_update {
                         if !version_req_unset_or_default(&version_req) {
                             bail!(
@@ -577,8 +633,8 @@ fn find_dependency_tables(
 ) -> impl Iterator<Item = (&mut dyn toml_edit::TableLike, Cow<'_, str>)> + '_ {
     const DEP_TABLES: &[&str] = &["dependencies", "dev-dependencies", "build-dependencies"];
 
-    root.iter_mut()
-        .flat_map(|(k, v)| match DEP_TABLES.iter().find(|dtn| *dtn == &k.get()) {
+    root.iter_mut().flat_map(
+        |(k, v)| match DEP_TABLES.iter().find(|dtn| *dtn == &k.get()) {
             Some(dtn) => v
                 .as_table_like_mut()
                 .into_iter()
@@ -605,7 +661,8 @@ fn find_dependency_tables(
                 })
                 .collect::<Vec<_>>(),
             None => Vec::new(),
-        })
+        },
+    )
 }
 
 fn req_as_version(req: &VersionReq) -> Option<Version> {
