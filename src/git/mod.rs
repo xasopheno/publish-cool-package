@@ -19,7 +19,10 @@ pub enum PackageChangeKind {
     ChangedOrNew,
 }
 
-pub fn change_since_last_release(package: &Package, ctx: &crate::Context) -> anyhow::Result<Option<PackageChangeKind>> {
+pub fn change_since_last_release(
+    package: &Package,
+    ctx: &crate::Context,
+) -> anyhow::Result<Option<PackageChangeKind>> {
     let version_tag_name = tag_name(package, &package.version, &ctx.repo);
     let mut tag_ref = match ctx.repo.try_find_reference(&version_tag_name)? {
         None => {
@@ -40,23 +43,26 @@ pub fn change_since_last_release(package: &Package, ctx: &crate::Context) -> any
                 // KEEP THIS IN SYNC with git::create_ref_history()!
                 .or_else(|| (ctx.meta.workspace_members.len() != 1).then(|| Utf8Path::new("src")))
             {
-                None => (current_commit != released_target).then(|| PackageChangeKind::ChangedOrNew),
+                None => {
+                    (current_commit != released_target).then(|| PackageChangeKind::ChangedOrNew)
+                }
                 Some(dir) => {
                     let components = dir.components().map(component_to_bytes);
-                    let current_dir_id = current_commit
+                    let current_dir_id_entry = current_commit
                         .object()?
                         .peel_to_kind(object::Kind::Tree)?
                         .into_tree()
                         .lookup_entry(components.clone())?
-                        .expect("path must exist in current commit")
-                        .oid;
-                    let released_dir_id = released_target
+                        .expect("path must exist in current commit");
+                    let current_dir_id = current_dir_id_entry.oid();
+
+                    let released_dir_id_entry = released_target
                         .object()?
                         .peel_to_kind(object::Kind::Tree)?
                         .into_tree()
                         .lookup_entry(components)?
-                        .expect("path must exist as it was supposedly released there")
-                        .oid;
+                        .expect("path must exist as it was supposedly released there");
+                    let released_dir_id = released_dir_id_entry.oid();
 
                     (released_dir_id != current_dir_id).then(|| PackageChangeKind::ChangedOrNew)
                 }
@@ -86,7 +92,9 @@ pub fn assure_clean_working_tree() -> anyhow::Result<()> {
         .stdout;
     if !untracked.trim().is_empty() {
         let err = anyhow!(git_repository::bstr::BString::from(untracked));
-        return Err(err.context("Found untracked files which would possibly be packaged when publishing."));
+        return Err(
+            err.context("Found untracked files which would possibly be packaged when publishing.")
+        );
     }
     Ok(())
 }
@@ -101,7 +109,11 @@ pub fn remote_url(repo: &git::Repository) -> anyhow::Result<Option<git::Url>> {
 
 pub fn author() -> anyhow::Result<git_repository::actor::Signature> {
     Ok(git_repository::actor::SignatureRef::from_bytes::<()>(
-        &Command::new("git").arg("var").arg("GIT_AUTHOR_IDENT").output()?.stdout,
+        &Command::new("git")
+            .arg("var")
+            .arg("GIT_AUTHOR_IDENT")
+            .output()?
+            .stdout,
     )?
     .to_owned())
 }
@@ -111,5 +123,7 @@ pub fn strip_tag_path(name: &FullNameRef) -> &BStr {
 }
 
 pub fn try_strip_tag_path(name: &FullNameRef) -> Option<&BStr> {
-    name.as_bstr().strip_prefix(b"refs/tags/").map(|b| b.as_bstr())
+    name.as_bstr()
+        .strip_prefix(b"refs/tags/")
+        .map(|b| b.as_bstr())
 }
