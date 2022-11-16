@@ -1,66 +1,6 @@
 use std::collections::BTreeMap;
 
 use bitflags::bitflags;
-use git_repository as git;
-
-pub mod conventional {
-    use git_repository as git;
-
-    /// A message that is associated with a Segment for a particular git-conventional segment
-    #[derive(PartialEq, Eq, Debug, Clone)]
-    pub enum Message {
-        User {
-            /// The user text for direct markdown-to-markdown copy
-            markdown: String,
-        },
-        Generated {
-            /// The id of the message/commit the data is coming from, useful to identify the markdown associate with this message.
-            id: git::ObjectId,
-            title: String,
-            body: Option<String>,
-        },
-    }
-
-    /// Note that this depends on `crate::commit::message::to_static()`,
-    /// Not having a headline means it won't be written back unless it contains breaking changes.
-    pub fn as_headline(kind: &str) -> Option<&'static str> {
-        // NOTE: adding one here needs additions to parse.rs
-        Some(match kind {
-            "fix" => "Bug Fixes",
-            "add" | "added" => "Added",
-            "feat" => "New Features",
-            "revert" => "Reverted",
-            "remove" => "Removed",
-            "change" => "Changed",
-            "docs" => "Documentation",
-            "perf" => "Performance",
-            "chore" => "Chore",
-            "test" => "Test",
-            "refactor" => "Refactor",
-            "other" => "Other",
-            "style" => "Style",
-            _unknown => return None,
-        })
-    }
-}
-
-#[derive(Eq, PartialEq, Debug, Clone)]
-pub struct Conventional {
-    /// The git-conventional kind
-    pub kind: &'static str,
-    /// Whether or not the segment contains only breaking changes
-    pub is_breaking: bool,
-    /// object IDs parsed from markdown with no surrounding text. These are considered removed, so we shouldn't repopulate them.
-    pub removed: Vec<git::ObjectId>,
-    /// The messages to convey
-    pub messages: Vec<conventional::Message>,
-}
-
-impl Conventional {
-    pub const REMOVED_HTML_PREFIX: &'static str = "<csr-id-";
-    pub const BREAKING_TITLE: &'static str = "BREAKING";
-    pub const BREAKING_TITLE_ENCLOSED: &'static str = "(BREAKING)";
-}
 
 pub mod details {
     use std::fmt;
@@ -115,8 +55,6 @@ pub struct CommitStatistics {
     pub count: usize,
     /// The time span from first to last commit, if there is more than one.
     pub duration: Option<time::Duration>,
-    /// Amount of commits that could be parsed as git-conventional
-    pub conventional_count: usize,
     /// The issue numbers that were referenced in commit messages
     pub unique_issues: Vec<details::Category>,
     /// The duration from the release before this one, if this isn't the first release.
@@ -141,6 +79,5 @@ bitflags! {
         const CLIPPY = 1<<0;
         const COMMIT_DETAILS = 1<<1;
         const COMMIT_STATISTICS = 1<<2;
-        const GIT_CONVENTIONAL = 1<<3;
     }
 }

@@ -29,11 +29,6 @@ impl std::fmt::Display for BumpSpec {
 #[allow(clippy::ptr_arg)]
 pub(crate) fn select_publishee_bump_spec(_name: &String, ctx: &Context) -> BumpSpec {
     ctx.bump
-    // if ctx.crate_names.contains(name) {
-    // ctx.bump
-    // } else {
-    // ctx.bump_dependencies
-    // }
 }
 
 /// Returns true if this would be a breaking change for `v`.
@@ -51,7 +46,7 @@ fn bump_major_minor_patch(v: &mut semver::Version, bump_spec: BumpSpec) -> bool 
             v.minor += 1;
             v.patch = 0;
             v.pre = Prerelease::EMPTY;
-            is_pre_release(v)
+            false
         }
         Patch => {
             v.patch += 1;
@@ -125,12 +120,7 @@ pub(crate) fn bump_package_with_spec(
                 };
                 assert!(is_breaking, "BUG: breaking changes are…breaking :D");
                 is_breaking
-            } else if unreleased.history.iter().any(|item| {
-                item.message
-                    .kind
-                    .map(|kind| kind == "feat")
-                    .unwrap_or(false)
-            }) {
+            } else if unreleased.history.iter().any(|_item| false) {
                 let is_breaking = if is_pre_release(&v) {
                     bump_major_minor_patch(&mut v, Patch)
                 } else {

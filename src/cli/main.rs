@@ -116,7 +116,7 @@ fn to_bump_spec(spec: &str) -> anyhow::Result<publish_cool_workspace::version::B
                 .collect();
             dbg!(&found);
             Specific(found[0], found[1], found[2])
-        } // unknown_spec => anyhow::bail!("Unknown bump specification: {:?}", unknown_spec),
+        }
     })
 }
 
@@ -133,7 +133,6 @@ fn names_to_segment_selection(
                 "clippy" => Selection::CLIPPY,
                 "commit-details" => Selection::COMMIT_DETAILS,
                 "commit-statistics" => Selection::COMMIT_STATISTICS,
-                "git-conventional" => Selection::GIT_CONVENTIONAL,
                 other => anyhow::bail!("Invalid changelog segment selector: {:?}", other),
             };
         }

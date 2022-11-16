@@ -3,15 +3,14 @@ use std::collections::BTreeMap;
 use anyhow::bail;
 
 use crate::{
-    changelog,
-    changelog::{write::Linkables, Section},
+    changelog::write::Linkables,
     command::release::Options,
     traverse::{
         self, dependency,
         dependency::{ManifestAdjustment, VersionAdjustment},
         Dependency,
     },
-    utils::{tag_name, try_to_published_crate_and_new_version, will, Program},
+    utils::{try_to_published_crate_and_new_version, will},
     version,
     version::BumpSpec,
 };
@@ -44,13 +43,21 @@ impl Context {
         } else {
             Linkables::AsText
         };
-        Ok(Context { base, changelog_links })
+        Ok(Context {
+            base,
+            changelog_links,
+        })
     }
 }
 
 /// In order to try dealing with https://github.com/sunng87/cargo-release/issues/224 and also to make workspace
 /// releases more selective.
-pub fn release(opts: Options, crates: Vec<String>, bump: BumpSpec, bump_dependencies: BumpSpec) -> anyhow::Result<()> {
+pub fn release(
+    opts: Options,
+    crates: Vec<String>,
+    bump: BumpSpec,
+    bump_dependencies: BumpSpec,
+) -> anyhow::Result<()> {
     if opts.dry_run_cargo_publish && !opts.dry_run {
         bail!("The --no-dry-run-cargo-publish flag is only effective without --execute")
     }
@@ -71,7 +78,13 @@ pub fn release(opts: Options, crates: Vec<String>, bump: BumpSpec, bump_dependen
         );
     }
 
-    let ctx = Context::new(crates, bump, bump_dependencies, allow_changelog, opts.changelog_links)?;
+    let ctx = Context::new(
+        crates,
+        bump,
+        bump_dependencies,
+        allow_changelog,
+        opts.changelog_links,
+    )?;
     if !ctx.base.crates_index.exists() {
         log::warn!("Crates.io index doesn't exist. Consider using --update-crates-index to help determining if release versions are published already");
     }
@@ -85,7 +98,8 @@ impl From<Options> for crate::traverse::Options {
         Self {
             allow_auto_publish_of_stable_crates: v.allow_auto_publish_of_stable_crates,
             bump_when_needed: v.bump_when_needed,
-            isolate_dependencies_from_breaking_changes: v.isolate_dependencies_from_breaking_changes,
+            isolate_dependencies_from_breaking_changes: v
+                .isolate_dependencies_from_breaking_changes,
             traverse_graph: v.dependencies,
         }
     }
@@ -96,7 +110,8 @@ fn release_depth_first(ctx: Context, opts: Options) -> anyhow::Result<()> {
         crate::traverse::dependencies(&ctx.base, opts.into())
             .and_then(|crates| assure_crates_index_is_uptodate(crates, &ctx.base, opts.into()))
             .and_then(|crates| {
-                present_and_validate_dependencies(&crates, &ctx, opts.verbose, opts.dry_run).map(|_| crates)
+                present_and_validate_dependencies(&crates, &ctx, opts.verbose, opts.dry_run)
+                    .map(|_| crates)
             })?
     };
 
@@ -195,7 +210,11 @@ fn present_and_validate_dependencies(
                 .map(|(key, names)| format!(
                     "{} = {}",
                     key,
-                    names.iter().map(|n| format!("'{}'", n)).collect::<Vec<_>>().join(", ")
+                    names
+                        .iter()
+                        .map(|n| format!("'{}'", n))
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 ))
                 .collect::<Vec<_>>()
                 .join(", ")
@@ -229,7 +248,9 @@ fn present_and_validate_dependencies(
                 {
                     let bump_flag = match dep.kind {
                         dependency::Kind::UserSelection => "--bump <level>",
-                        dependency::Kind::DependencyOrDependentOfUserSelection => "--bump-dependencies <level>",
+                        dependency::Kind::DependencyOrDependentOfUserSelection => {
+                            "--bump-dependencies <level>"
+                        }
                     };
                     if bump.next_release == bump.package_version {
                         log::error!(
@@ -268,11 +289,18 @@ fn present_and_validate_dependencies(
                             .map(|causes| format!(
                                 ", for SAFETY due to breaking package{} {}",
                                 if causes.len() == 1 { "" } else { "s" },
-                                causes.iter().map(|n| format!("'{}'", n)).collect::<Vec<_>>().join(", ")
+                                causes
+                                    .iter()
+                                    .map(|n| format!("'{}'", n))
+                                    .collect::<Vec<_>>()
+                                    .join(", ")
                             ))
                             .unwrap_or_default(),
                         (bump.next_release != bump.desired_release)
-                            .then(|| format!(", ignoring computed version {}", bump.desired_release))
+                            .then(|| format!(
+                                ", ignoring computed version {}",
+                                bump.desired_release
+                            ))
                             .unwrap_or_default(),
                     );
                 } else if bump.desired_release != dep.package.version {
@@ -338,7 +366,10 @@ fn present_and_validate_dependencies(
                 cause,
                 deps_and_bumps
                     .into_iter()
-                    .map(|(dep_name, bump)| format!("'{}' {} ➡ {}", dep_name, bump.package_version, bump.next_release))
+                    .map(|(dep_name, bump)| format!(
+                        "'{}' {} ➡ {}",
+                        dep_name, bump.package_version, bump.next_release
+                    ))
                     .collect::<Vec<_>>()
                     .join(", ")
             );
@@ -397,7 +428,11 @@ fn assure_working_tree_is_unchanged(options: Options) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn perform_release(ctx: &Context, options: Options, crates: &[traverse::Dependency<'_>]) -> anyhow::Result<()> {
+fn perform_release(
+    ctx: &Context,
+    options: Options,
+    crates: &[traverse::Dependency<'_>],
+) -> anyhow::Result<()> {
     manifest::edit_version_and_fixup_dependent_crates_and_handle_changelog(crates, options, ctx)?;
 
     // let should_publish_to_github = options.allow_changelog_github_release
@@ -408,10 +443,14 @@ fn perform_release(ctx: &Context, options: Options, crates: &[traverse::Dependen
     // false
     // };
     // let mut tag_names = Vec::new();
-    let mut successful_publishees_and_version = Vec::<(&cargo_metadata::Package, &semver::Version)>::new();
+    let mut successful_publishees_and_version =
+        Vec::<(&cargo_metadata::Package, &semver::Version)>::new();
     let mut publish_err = None;
     let prevent_default_members = ctx.base.meta.workspace_members.len() > 1;
-    for (publishee, new_version) in crates.iter().filter_map(try_to_published_crate_and_new_version) {
+    for (publishee, new_version) in crates
+        .iter()
+        .filter_map(try_to_published_crate_and_new_version)
+    {
         if let Some((crate_, version)) = successful_publishees_and_version.last() {
             if let Err(err) = wait_for_release(*crate_, version, options) {
                 log::warn!(
@@ -475,7 +514,11 @@ fn wait_for_release(
     let sleep_time = std::time::Duration::from_secs(1);
     let crate_version = crate_version.to_string();
 
-    log::info!("Waiting for '{} v{}' to arrive in index…", crate_.name, crate_version);
+    log::info!(
+        "Waiting for '{} v{}' to arrive in index…",
+        crate_.name,
+        crate_version
+    );
     let mut crates_index = crates_index::Index::new_cargo_default()?;
     let mut attempt = 0;
     while start.elapsed() < timeout {
@@ -502,24 +545,4 @@ fn wait_for_release(
         log::info!("attempt {}", attempt);
     }
     Ok(())
-}
-
-enum WriteMode {
-    Tag,
-    GitHubRelease,
-}
-
-fn section_to_string(section: &Section, mode: WriteMode) -> Option<String> {
-    let mut b = String::new();
-    section
-        .write_to(
-            &mut b,
-            &changelog::write::Linkables::AsText,
-            match mode {
-                WriteMode::Tag => changelog::write::Components::empty(),
-                WriteMode::GitHubRelease => changelog::write::Components::DETAIL_TAGS,
-            },
-        )
-        .ok()
-        .map(|_| b)
 }

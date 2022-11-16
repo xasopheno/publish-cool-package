@@ -32,34 +32,6 @@ impl Section {
         let mut segments = Vec::new();
         let history = &segment.history;
         if !history.is_empty() {
-            if selection.contains(Selection::GIT_CONVENTIONAL) {
-                let mut mapping = BTreeMap::default();
-                for (id, kind, title, is_breaking, body) in history.iter().filter_map(|i| {
-                    i.message.kind.as_ref().map(|kind| {
-                        (
-                            i.id,
-                            kind,
-                            i.message.title.clone(),
-                            i.message.breaking,
-                            i.message.body.clone(),
-                        )
-                    })
-                }) {
-                    mapping
-                        .entry((is_breaking, kind))
-                        .or_insert_with(Vec::new)
-                        .push(section::segment::conventional::Message::Generated { id, title, body })
-                }
-                // TODO: proper sorting
-                segments.extend(mapping.into_iter().map(|((is_breaking, kind), messages)| {
-                    Segment::Conventional(section::segment::Conventional {
-                        kind,
-                        is_breaking,
-                        removed: Vec::new(),
-                        messages,
-                    })
-                }));
-            }
             let message_by_category = selection
                 .intersects(Selection::COMMIT_STATISTICS | Selection::COMMIT_DETAILS)
                 .then(|| {
@@ -70,7 +42,9 @@ impl Section {
                             match possibly_issue {
                                 commit::message::Addition::IssueId(issue) => {
                                     mapping
-                                        .entry(section::segment::details::Category::Issue(issue.to_owned()))
+                                        .entry(section::segment::details::Category::Issue(
+                                            issue.to_owned(),
+                                        ))
                                         .or_insert_with(Vec::new)
                                         .push(item.into());
                                     issue_associations += 1;
@@ -97,12 +71,14 @@ impl Section {
                     section::segment::CommitStatistics {
                         count: history.len(),
                         duration,
-                        time_passed_since_last_release: prev_date_time.map(|prev_time| date_time.sub(prev_time)),
-                        conventional_count: history.iter().filter(|item| item.message.kind.is_some()).count(),
+                        time_passed_since_last_release: prev_date_time
+                            .map(|prev_time| date_time.sub(prev_time)),
                         unique_issues: {
                             let mut v = commits_by_category
                                 .keys()
-                                .filter(|c| matches!(c, section::segment::details::Category::Issue(_)))
+                                .filter(|c| {
+                                    matches!(c, section::segment::details::Category::Issue(_))
+                                })
                                 .cloned()
                                 .collect::<Vec<_>>();
                             v.sort();
@@ -125,9 +101,11 @@ impl Section {
             if let Some(commits_by_category) =
                 message_by_category.filter(|_| selection.contains(Selection::COMMIT_DETAILS))
             {
-                segments.push(Segment::Details(section::Data::Generated(section::segment::Details {
-                    commits_by_category,
-                })));
+                segments.push(Segment::Details(section::Data::Generated(
+                    section::segment::Details {
+                        commits_by_category,
+                    },
+                )));
             }
         }
 
@@ -157,7 +135,10 @@ impl Section {
     }
 }
 
-fn segment_head_time(segment: &commit::history::Segment<'_>, repo: &git::Repository) -> OffsetDateTime {
+fn segment_head_time(
+    segment: &commit::history::Segment<'_>,
+    repo: &git::Repository,
+) -> OffsetDateTime {
     let time = segment
         .head
         .peeled

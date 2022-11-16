@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use crate::{changelog::section::segment::conventional::as_headline, ChangeLog};
+use crate::ChangeLog;
 
 pub mod init;
 mod merge;
@@ -95,7 +95,11 @@ impl Section {
                 unknown,
                 removed_messages,
                 ..
-            } => !unknown.is_empty() || !removed_messages.is_empty() || segments.iter().any(|s| !s.is_read_only()),
+            } => {
+                !unknown.is_empty()
+                    || !removed_messages.is_empty()
+                    || segments.iter().any(|s| !s.is_read_only())
+            }
         }
     }
     /// Returns true if there is no user-made section, or no edit by users in conventional segments at all.
@@ -103,14 +107,7 @@ impl Section {
     pub fn is_probably_lacking_user_edits(&self) -> bool {
         match self {
             Section::Verbatim { .. } => false,
-            Section::Release { segments, .. } => {
-                if segments.iter().any(|s| matches!(s, section::Segment::User { .. })) {
-                    return false;
-                };
-                segments.iter().any(
-                    |s| matches!(s, section::Segment::Conventional(section::segment::Conventional {kind, removed, is_breaking, ..}) if *is_breaking && removed.is_empty() && as_headline(*kind).is_none()),
-                )
-            }
+            Section::Release { .. } => false,
         }
     }
 }

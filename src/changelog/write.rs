@@ -50,12 +50,17 @@ impl From<git::Url> for RepositoryUrl {
 
 impl RepositoryUrl {
     pub fn is_github(&self) -> bool {
-        self.inner.host().map(|h| h == "github.com").unwrap_or(false)
+        self.inner
+            .host()
+            .map(|h| h == "github.com")
+            .unwrap_or(false)
     }
 
     fn cleaned_path(&self) -> String {
         let path = self.inner.path.to_str_lossy().into_owned();
-        path.strip_suffix(".git").map(ToOwned::to_owned).unwrap_or(path)
+        path.strip_suffix(".git")
+            .map(ToOwned::to_owned)
+            .unwrap_or(path)
     }
 
     pub fn github_https(&self) -> Option<String> {
@@ -120,7 +125,10 @@ impl Section {
                         out,
                         "{} {}",
                         heading(*heading_level),
-                        PrefixedVersion { version_prefix, name }
+                        PrefixedVersion {
+                            version_prefix,
+                            name
+                        }
                     )?;
                     match date {
                         None => out.write_str("\n\n"),
@@ -134,9 +142,6 @@ impl Section {
                     }?;
                 }
                 if !removed_messages.is_empty() && components.contains(Components::HTML_TAGS) {
-                    for id in removed_messages {
-                        writeln!(out, "{}{}/>", segment::Conventional::REMOVED_HTML_PREFIX, id)?;
-                    }
                     writeln!(out)?;
                 }
 
@@ -196,77 +201,16 @@ impl section::Segment {
                 out.write_str(markdown)?;
                 assure_ends_with_empty_line(&mut out, markdown)?;
             }
-            Segment::Conventional(segment::Conventional {
-                kind,
-                is_breaking,
-                removed,
-                messages,
-            }) => match segment::conventional::as_headline(kind).or_else(|| is_breaking.then(|| *kind)) {
-                Some(headline) => {
-                    writeln!(
-                        out,
-                        "{} {}{}\n",
-                        heading(section_level),
-                        headline,
-                        if *is_breaking {
-                            format!(" {}", segment::Conventional::BREAKING_TITLE_ENCLOSED)
-                        } else {
-                            "".into()
-                        },
-                    )?;
-
-                    if !removed.is_empty() && write_html {
-                        for id in removed {
-                            writeln!(out, "{}{}/>", segment::Conventional::REMOVED_HTML_PREFIX, id)?;
-                        }
-                        writeln!(out)?;
-                    }
-
-                    use segment::conventional::Message;
-                    for message in messages {
-                        match message {
-                            Message::Generated { title, id, body } => {
-                                if write_html {
-                                    writeln!(
-                                        out,
-                                        " - {}{}/> {}",
-                                        segment::Conventional::REMOVED_HTML_PREFIX,
-                                        id,
-                                        title
-                                    )?;
-                                } else {
-                                    writeln!(out, " - {}", title)?;
-                                }
-                                if let Some(body) = body {
-                                    for line in body.as_bytes().as_bstr().lines_with_terminator() {
-                                        write!(out, "   {}", line.to_str().expect("cannot fail as original is UTF-8"))?;
-                                    }
-                                    if !body.ends_with('\n') {
-                                        writeln!(out)?;
-                                    }
-                                }
-                            }
-                            Message::User { markdown } => {
-                                out.write_str(markdown)?;
-                                if !markdown.ends_with('\n') {
-                                    writeln!(out)?;
-                                }
-                            }
-                        }
-                    }
-                    writeln!(out)?;
-                }
-                None => log::trace!(
-                    "Skipping unknown git-conventional kind {:?} and all {} message(s) in it.",
-                    kind,
-                    messages.len()
-                ),
-            },
-            Segment::Details(section::Data::Generated(segment::Details { commits_by_category }))
-                if !commits_by_category.is_empty() =>
-            {
+            Segment::Details(section::Data::Generated(segment::Details {
+                commits_by_category,
+            })) if !commits_by_category.is_empty() => {
                 let write_details_tags = components.contains(Components::DETAIL_TAGS);
-                writeln!(out, "{} {}\n", heading(section_level), segment::Details::TITLE)?;
+                writeln!(
+                    out,
+                    "{} {}\n",
+                    heading(section_level),
+                    segment::Details::TITLE
+                )?;
                 if write_details_tags {
                     writeln!(out, "{}", Section::READONLY_TAG)?;
                     writeln!(out, "{}\n", segment::Details::HTML_PREFIX)?;
@@ -274,7 +218,12 @@ impl section::Segment {
                 for (category, messages) in commits_by_category.iter() {
                     writeln!(out, " * **{}**", format_category(category, link_mode))?;
                     for message in messages {
-                        writeln!(out, "    - {} ({})", message.title, format_oid(&message.id, link_mode))?;
+                        writeln!(
+                            out,
+                            "    - {} ({})",
+                            message.title,
+                            format_oid(&message.id, link_mode)
+                        )?;
                     }
                 }
                 if write_details_tags {
@@ -285,11 +234,15 @@ impl section::Segment {
             Segment::Statistics(section::Data::Generated(segment::CommitStatistics {
                 count,
                 duration,
-                conventional_count,
                 unique_issues,
                 time_passed_since_last_release,
             })) => {
-                writeln!(out, "{} {}\n", heading(section_level), segment::CommitStatistics::TITLE)?;
+                writeln!(
+                    out,
+                    "{} {}\n",
+                    heading(section_level),
+                    segment::CommitStatistics::TITLE
+                )?;
                 if write_html {
                     writeln!(out, "{}", Section::READONLY_TAG)?;
                 }
@@ -302,12 +255,18 @@ impl section::Segment {
                         Some(duration) if duration.whole_days() > 0 => format!(
                             " over the course of {} calendar {}.",
                             duration.whole_days(),
-                            if duration.whole_days() == 1 { "day" } else { "days" }
+                            if duration.whole_days() == 1 {
+                                "day"
+                            } else {
+                                "days"
+                            }
                         ),
                         _ => ".".into(),
                     }
                 )?;
-                if let Some(time_between_releases) = time_passed_since_last_release.filter(|d| d.whole_days() > 0) {
+                if let Some(time_between_releases) =
+                    time_passed_since_last_release.filter(|d| d.whole_days() > 0)
+                {
                     writeln!(
                         out,
                         " - {} {} passed between releases.",
@@ -322,9 +281,9 @@ impl section::Segment {
                 writeln!(
                     out,
                     " - {} {} {} understood as [conventional](https://www.conventionalcommits.org).",
-                    conventional_count,
-                    if *conventional_count == 1 { "commit" } else { "commits" },
-                    if *conventional_count == 1 { "was" } else { "were" }
+                    0,
+                    false,
+                    false
                 )?;
                 if unique_issues.is_empty() {
                     writeln!(out, " - 0 issues like '(#ID)' were seen in commit messages")?;
@@ -333,8 +292,16 @@ impl section::Segment {
                         out,
                         " - {} unique {} {} worked on: {}",
                         unique_issues.len(),
-                        if unique_issues.len() == 1 { "issue" } else { "issues" },
-                        if unique_issues.len() == 1 { "was" } else { "were" },
+                        if unique_issues.len() == 1 {
+                            "issue"
+                        } else {
+                            "issues"
+                        },
+                        if unique_issues.len() == 1 {
+                            "was"
+                        } else {
+                            "were"
+                        },
                         unique_issues
                             .iter()
                             .map(|c| format_category(c, link_mode))
@@ -344,8 +311,15 @@ impl section::Segment {
                 }
                 writeln!(out)?;
             }
-            Segment::Clippy(section::Data::Generated(segment::ThanksClippy { count })) if *count > 0 => {
-                writeln!(out, "{} {}\n", heading(section_level), segment::ThanksClippy::TITLE)?;
+            Segment::Clippy(section::Data::Generated(segment::ThanksClippy { count }))
+                if *count > 0 =>
+            {
+                writeln!(
+                    out,
+                    "{} {}\n",
+                    heading(section_level),
+                    segment::ThanksClippy::TITLE
+                )?;
                 if write_html {
                     writeln!(out, "{}", Section::READONLY_TAG)?;
                 }
@@ -366,12 +340,14 @@ impl section::Segment {
 
 fn format_category(cat: &Category, link_mode: &Linkables) -> String {
     match (cat, link_mode) {
-        (Category::Issue(id), Linkables::AsLinks { repository_url }) => match repository_url.github_https() {
-            Some(base_url) => {
-                format!("[#{}]({}/issues/{})", id, base_url, id)
+        (Category::Issue(id), Linkables::AsLinks { repository_url }) => {
+            match repository_url.github_https() {
+                Some(base_url) => {
+                    format!("[#{}]({}/issues/{})", id, base_url, id)
+                }
+                None => format_category(cat, &Linkables::AsText),
             }
-            None => format_category(cat, &Linkables::AsText),
-        },
+        }
         (_, _) => cat.to_string(),
     }
 }

@@ -19,7 +19,7 @@ use crate::{
         names_and_versions, try_to_published_crate_and_new_version, version_req_unset_or_default,
         will,
     },
-    version, ChangeLog,
+    ChangeLog,
 };
 
 pub struct Outcome<'repo, 'meta> {
@@ -552,10 +552,7 @@ fn set_version_and_update_package_dependency(
     new_package_version: Option<&semver::Version>,
     crates: &[(&Package, &semver::Version)],
     mut out: impl std::io::Write,
-    Options {
-        conservative_pre_release_version_handling,
-        ..
-    }: Options,
+    Options { .. }: Options,
 ) -> anyhow::Result<bool> {
     let manifest = std::fs::read_to_string(&package_to_update.manifest_path)?;
     let mut doc = toml_edit::Document::from_str(&manifest)?;
@@ -588,10 +585,6 @@ fn set_version_and_update_package_dependency(
                         current_version_req.as_str().expect("versions are strings"),
                     )?;
                     let force_update = true;
-                    conservative_pre_release_version_handling
-                    && version::is_pre_release(new_version) // setting the lower bound unnecessarily can be harmful
-                    // don't claim to be conservative if this is necessary anyway
-                    && req_as_version(&version_req).map(|req_version|!version::rhs_is_breaking_bump_for_lhs(&req_version, new_version)).unwrap_or(false);
                     if !version_req.matches(new_version) || force_update {
                         if !version_req_unset_or_default(&version_req) {
                             bail!(
@@ -663,14 +656,4 @@ fn find_dependency_tables(
             None => Vec::new(),
         },
     )
-}
-
-fn req_as_version(req: &VersionReq) -> Option<Version> {
-    req.comparators.first().map(|comp| Version {
-        major: comp.major,
-        minor: comp.minor.unwrap_or(0),
-        patch: comp.patch.unwrap_or(0),
-        pre: comp.pre.clone(),
-        build: Default::default(),
-    })
 }

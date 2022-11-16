@@ -14,18 +14,11 @@ use nom::{
     sequence::{delimited, preceded, separated_pair, terminated, tuple},
     Finish, IResult,
 };
-use pulldown_cmark::{CowStr, Event, HeadingLevel, OffsetIter, Tag};
+use pulldown_cmark::{Event, HeadingLevel, OffsetIter, Tag};
 
 use crate::{
     changelog,
-    changelog::{
-        section,
-        section::{
-            segment::{conventional::as_headline, Conventional},
-            Segment,
-        },
-        Section,
-    },
+    changelog::{section, section::Segment, Section},
     ChangeLog,
 };
 
@@ -95,7 +88,9 @@ impl ChangeLog {
             }
         }
         release_sections.sort_by(|lhs, rhs| match (lhs, rhs) {
-            (Section::Release { name: lhs, .. }, Section::Release { name: rhs, .. }) => lhs.cmp(rhs).reverse(),
+            (Section::Release { name: lhs, .. }, Section::Release { name: rhs, .. }) => {
+                lhs.cmp(rhs).reverse()
+            }
             _ => unreachable!("BUG: there are only release sections here"),
         });
         let mut sections = Vec::from_iter(non_release_sections.drain(..insert_sorted_at_pos));
@@ -122,7 +117,7 @@ impl Section {
         let mut segments = Vec::new();
 
         let mut unknown_range = None;
-        let mut removed_messages = Vec::new();
+        let removed_messages = Vec::new();
         while let Some((e, range)) = events.next() {
             match e {
                 Event::Html(text) if text.starts_with(Section::UNKNOWN_TAG_START) => {
@@ -133,17 +128,9 @@ impl Section {
                         track_unknown_event(event, &mut unknown);
                     }
                 }
-                Event::Html(text) if text.starts_with(section::segment::Conventional::REMOVED_HTML_PREFIX) => {
-                    if let Some(id) = parse_message_id(text.as_ref()) {
-                        if !removed_messages.contains(&id) {
-                            removed_messages.push(id);
-                        }
-                    }
-                }
                 Event::Start(Tag::Heading(indent, _, _)) => {
                     record_unknown_range(&mut segments, unknown_range.take(), &body);
                     enum State {
-                        ParseConventional { title: String },
                         SkipGenerated,
                         ConsiderUserAuthored,
                     }
@@ -160,26 +147,11 @@ impl Section {
                             segments.push(Segment::Statistics(section::Data::Parsed));
                             State::SkipGenerated
                         }
-                        Some((Event::Text(title), _range)) if title.starts_with(section::segment::Details::TITLE) => {
+                        Some((Event::Text(title), _range))
+                            if title.starts_with(section::segment::Details::TITLE) =>
+                        {
                             segments.push(Segment::Details(section::Data::Parsed));
                             State::SkipGenerated
-                        }
-                        Some((Event::Text(title), _range))
-                            if title.starts_with(as_headline("feat").expect("valid"))
-                                || title.starts_with(as_headline("add").expect("valid"))
-                                || title.starts_with(as_headline("revert").expect("valid"))
-                                || title.starts_with(as_headline("remove").expect("valid"))
-                                || title.starts_with(as_headline("change").expect("valid"))
-                                || title.starts_with(as_headline("docs").expect("valid"))
-                                || title.starts_with(as_headline("perf").expect("valid"))
-                                || title.starts_with("refactor")
-                                || title.starts_with("other")
-                                || title.starts_with("style")
-                                || title.starts_with(as_headline("fix").expect("valid")) =>
-                        {
-                            State::ParseConventional {
-                                title: title.into_string(),
-                            }
                         }
                         Some((_event, next_range)) => {
                             update_unknown_range(&mut unknown_range, range);
@@ -199,15 +171,6 @@ impl Section {
                         })
                         .count();
                     match state {
-                        State::ParseConventional { title } => {
-                            segments.push(parse_conventional_to_next_section_title(
-                                &body,
-                                title,
-                                &mut events,
-                                indent,
-                                &mut unknown,
-                            ));
-                        }
                         State::SkipGenerated => {
                             skip_to_next_section_title(&mut events, indent);
                         }
@@ -233,184 +196,6 @@ impl Section {
     }
 }
 
-fn parse_conventional_to_next_section_title(
-    markdown: &str,
-    title: String,
-    events: &mut Peekable<OffsetIter<'_, '_>>,
-    level: HeadingLevel,
-    unknown: &mut String,
-) -> Segment {
-    let is_breaking = title.ends_with(section::segment::Conventional::BREAKING_TITLE_ENCLOSED);
-    let kind = [
-        "fix", "add", "feat", "revert", "remove", "change", "docs", "perf", "refactor", "other", "style",
-    ]
-    .iter()
-    .find(|kind| {
-        let headline = section::segment::conventional::as_headline(*kind).unwrap_or(*kind);
-        let common_len = headline.len().min(title.len());
-        title
-            .get(..common_len)
-            .and_then(|t| headline.get(..common_len).map(|h| t.eq_ignore_ascii_case(h)))
-            .unwrap_or(false)
-    })
-    .expect("BUG: this list needs an update too if new kinds of conventional messages are added");
-
-    let mut conventional = section::segment::Conventional {
-        kind: *kind,
-        is_breaking,
-        removed: vec![],
-        messages: vec![],
-    };
-    while let Some((event, _range)) = events.peek() {
-        match event {
-            Event::Start(Tag::Heading(indent, _, _)) if *indent == level => break,
-            _ => {
-                let (event, _range) = events.next().expect("peeked before so event is present");
-                match event {
-                    Event::Html(ref tag) => match parse_message_id(tag.as_ref()) {
-                        Some(id) => {
-                            if !conventional.removed.contains(&id) {
-                                conventional.removed.push(id)
-                            }
-                        }
-                        None => track_unknown_event(event, unknown),
-                    },
-                    Event::Start(Tag::List(_)) => {
-                        while let Some((event, item_range)) = events.next() {
-                            match event {
-                                Event::Start(Tag::Item) => {
-                                    if let Some((possibly_html, _)) = events.next() {
-                                        match possibly_html {
-                                            Event::Start(Tag::Paragraph) => {
-                                                if let Some((possibly_html, _)) = events.next() {
-                                                    match possibly_html {
-                                                        Event::Html(tag) => {
-                                                            parse_id_fallback_to_user_message(
-                                                                markdown,
-                                                                events,
-                                                                &mut conventional,
-                                                                item_range,
-                                                                tag,
-                                                            );
-                                                        }
-                                                        _other_event => make_user_message_and_consume_item(
-                                                            markdown,
-                                                            events,
-                                                            &mut conventional,
-                                                            item_range,
-                                                        ),
-                                                    }
-                                                }
-                                            }
-                                            Event::Html(tag) => {
-                                                parse_id_fallback_to_user_message(
-                                                    markdown,
-                                                    events,
-                                                    &mut conventional,
-                                                    item_range,
-                                                    tag,
-                                                );
-                                            }
-                                            _other_event => make_user_message_and_consume_item(
-                                                markdown,
-                                                events,
-                                                &mut conventional,
-                                                item_range,
-                                            ),
-                                        }
-                                    }
-                                }
-                                Event::End(Tag::List(_)) => break,
-                                event => track_unknown_event(event, unknown),
-                            }
-                        }
-                    }
-                    event => track_unknown_event(event, unknown),
-                }
-                continue;
-            }
-        }
-    }
-    section::Segment::Conventional(conventional)
-}
-
-fn parse_id_fallback_to_user_message(
-    markdown: &str,
-    events: &mut Peekable<OffsetIter<'_, '_>>,
-    conventional: &mut Conventional,
-    item_range: Range<usize>,
-    tag: CowStr<'_>,
-) {
-    match parse_message_id(tag.as_ref()) {
-        Some(id) => {
-            let mut events = events
-                .by_ref()
-                .take_while(|(e, _r)| !matches!(e, Event::End(Tag::Item)))
-                .map(|(_, r)| r);
-            let start = events.next();
-            let end = events.last().or_else(|| start.clone());
-            if let Some(title_and_body) = start
-                .map(|r| r.start)
-                .and_then(|start| end.map(|r| markdown[start..r.end].trim()))
-            {
-                let mut lines = title_and_body
-                    .as_bytes()
-                    .as_bstr()
-                    .lines_with_terminator()
-                    .map(|b| b.to_str().expect("always valid as source is UTF-8"));
-                conventional
-                    .messages
-                    .push(section::segment::conventional::Message::Generated {
-                        id,
-                        title: lines.next().map(|l| l.trim()).unwrap_or("").to_owned(),
-                        body: lines
-                            .map(|l| {
-                                match l
-                                    .chars()
-                                    .take_while(|c| *c == ' ' || *c == '\t')
-                                    .enumerate()
-                                    .map(|(idx, _)| idx)
-                                    .last()
-                                {
-                                    Some(last_pos_to_truncate) => &l[last_pos_to_truncate + 1..],
-                                    None => l,
-                                }
-                            })
-                            .fold(None::<String>, |mut acc, l| {
-                                acc.get_or_insert_with(String::new).push_str(l);
-                                acc
-                            }),
-                    });
-            }
-        }
-        None => make_user_message_and_consume_item(markdown, events, conventional, item_range),
-    };
-}
-
-fn make_user_message_and_consume_item(
-    markdown: &str,
-    events: &mut Peekable<OffsetIter<'_, '_>>,
-    conventional: &mut Conventional,
-    range: Range<usize>,
-) {
-    conventional
-        .messages
-        .push(section::segment::conventional::Message::User {
-            markdown: markdown[range].trim_end().to_owned(),
-        });
-    events.take_while(|(e, _)| !matches!(e, Event::End(Tag::Item))).count();
-}
-
-fn parse_message_id(html: &str) -> Option<git_repository::hash::ObjectId> {
-    let html = html.strip_prefix(section::segment::Conventional::REMOVED_HTML_PREFIX)?;
-    let end_of_hex = html.find(|c| {
-        !matches!(c,
-            'a'..='f' | '0'..='9'
-        )
-    })?;
-    git_repository::hash::ObjectId::from_hex(html[..end_of_hex].as_bytes()).ok()
-}
-
 fn update_unknown_range(target: &mut Option<Range<usize>>, source: Range<usize>) {
     match target {
         Some(range_thus_far) => {
@@ -422,7 +207,11 @@ fn update_unknown_range(target: &mut Option<Range<usize>>, source: Range<usize>)
     }
 }
 
-fn record_unknown_range(out: &mut Vec<section::Segment>, range: Option<Range<usize>>, markdown: &str) {
+fn record_unknown_range(
+    out: &mut Vec<section::Segment>,
+    range: Option<Range<usize>>,
+    markdown: &str,
+) {
     if let Some(range) = range {
         out.push(Segment::User {
             markdown: markdown[range].to_owned(),
@@ -468,11 +257,15 @@ impl<'a> TryFrom<&'a str> for Headline {
     type Error = ();
 
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        all_consuming(headline::<()>)(value).finish().map(|(_, h)| h)
+        all_consuming(headline::<()>)(value)
+            .finish()
+            .map(|(_, h)| h)
     }
 }
 
-fn headline<'a, E: ParseError<&'a str> + FromExternalError<&'a str, ()>>(i: &'a str) -> IResult<&'a str, Headline, E> {
+fn headline<'a, E: ParseError<&'a str> + FromExternalError<&'a str, ()>>(
+    i: &'a str,
+) -> IResult<&'a str, Headline, E> {
     let hashes = take_while(|c: char| c == '#');
     let greedy_whitespace = |i| take_while(|c: char| c.is_whitespace())(i);
     let take_n_digits = |n: usize| {
@@ -501,13 +294,25 @@ fn headline<'a, E: ParseError<&'a str> + FromExternalError<&'a str, ()>>(i: &'a 
                     delimited(
                         tag("("),
                         map_res(
-                            tuple((take_n_digits(4), tag("-"), take_n_digits(2), tag("-"), take_n_digits(2))),
+                            tuple((
+                                take_n_digits(4),
+                                tag("-"),
+                                take_n_digits(2),
+                                tag("-"),
+                                take_n_digits(2),
+                            )),
                             |(year, _, month, _, day)| {
-                                time::Month::try_from(month as u8).map_err(|_| ()).and_then(|month| {
-                                    time::Date::from_calendar_date(year as i32, month, day as u8)
+                                time::Month::try_from(month as u8).map_err(|_| ()).and_then(
+                                    |month| {
+                                        time::Date::from_calendar_date(
+                                            year as i32,
+                                            month,
+                                            day as u8,
+                                        )
                                         .map_err(|_| ())
                                         .map(|d| d.midnight().assume_utc())
-                                })
+                                    },
+                                )
                             },
                         ),
                         tag(")"),

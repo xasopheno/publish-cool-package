@@ -32,7 +32,11 @@ mod additions {
             .unwrap_or(end);
         s.replace_range(
             new_start..new_end,
-            if new_end != end && new_start != start { " " } else { "" },
+            if new_end != end && new_start != start {
+                " "
+            } else {
+                ""
+            },
         );
         s
     }
@@ -47,7 +51,11 @@ mod additions {
                 title[pos..].find(')').map(|ep| (pos, ep))
             }) {
                 additions.push(Addition::IssueId(title[pos..][..end_pos].to_owned()));
-                title = cut(title.into_owned(), (pos - issue_sep.len())..(pos + end_pos + 1)).into();
+                title = cut(
+                    title.into_owned(),
+                    (pos - issue_sep.len())..(pos + end_pos + 1),
+                )
+                .into();
             };
             if title.len() == previous_len {
                 break;
@@ -85,54 +93,20 @@ mod additions {
 
 impl From<&'_ str> for Message {
     fn from(m: &str) -> Self {
-        let (title, kind, body, breaking, breaking_description) = git_conventional::Commit::parse(m)
-            .map(|c: git_conventional::Commit<'_>| {
-                (
-                    c.description().into(),
-                    Some(c.type_()),
-                    c.body().map(Into::into),
-                    c.breaking(),
-                    c.breaking_description()
-                        .and_then(|d| if d == c.description() { None } else { Some(d) }),
-                )
-            })
-            .unwrap_or_else(|_| {
-                let m = git::objs::commit::MessageRef::from_bytes(m.as_bytes());
-                (
-                    m.summary().as_ref().to_string().into(),
-                    None,
-                    m.body().map(|b| b.without_trailer().to_str_lossy()),
-                    false,
-                    None,
-                )
-            });
+        let m = git::objs::commit::MessageRef::from_bytes(m.as_bytes());
+        let title = m.summary().as_ref().to_string().into();
+        let body = m.body().map(|b| b.without_trailer().to_str_lossy());
+        let breaking = false;
+        let breaking_description = None;
         let (title, additions) = additions::strip(title);
         Message {
             title: title.into_owned(),
-            kind: as_static_str(kind),
             body: body.map(|b| b.into_owned()),
             breaking,
-            breaking_description: breaking_description.map(ToOwned::to_owned),
+            breaking_description,
             additions,
         }
     }
-}
-
-/// Note that this depends on `crate::changelog::section::segment::Conventional::as_headline_name()`,
-fn as_static_str(kind: Option<git_conventional::Type<'_>>) -> Option<&'static str> {
-    kind.map(|kind| match kind.as_str() {
-        "feat" | "add" | "added" => "feat",
-        "fix" => "fix",
-        "revert" | "remove" => "revert",
-        "docs" => "docs",
-        "style" => "style",
-        "refactor" => "refactor",
-        "change" => "change",
-        "perf" => "perf",
-        "test" => "test",
-        "chore" => "chore",
-        _ => "other",
-    })
 }
 
 #[cfg(test)]
@@ -146,7 +120,6 @@ mod tests {
             Message {
                 title: "hi".into(),
                 body: None,
-                kind: None,
                 breaking: false,
                 breaking_description: None,
                 additions: vec![]
@@ -161,7 +134,6 @@ mod tests {
             Message {
                 title: "hi ho foo".into(),
                 body: Some("body".into()),
-                kind: None,
                 breaking: false,
                 breaking_description: None,
                 additions: vec![]
@@ -176,7 +148,6 @@ mod tests {
             Message {
                 title: "hi".into(),
                 body: Some("body\nother".into()),
-                kind: None,
                 breaking: false,
                 breaking_description: None,
                 additions: vec![Addition::IssueId("14123".into())]
@@ -187,11 +158,12 @@ mod tests {
     #[test]
     fn conventional_with_additions() {
         assert_eq!(
-            Message::from("feat!: hi (#123)\n\nthe body\n\nBREAKING-CHANGE: breaks\n\nSigned: foobar"),
+            Message::from(
+                "feat!: hi (#123)\n\nthe body\n\nBREAKING-CHANGE: breaks\n\nSigned: foobar"
+            ),
             Message {
                 title: "hi".into(),
                 body: Some("the body".into()),
-                kind: Some("feat"),
                 breaking: true,
                 breaking_description: Some("breaks".into()),
                 additions: vec![Addition::IssueId("123".into())]

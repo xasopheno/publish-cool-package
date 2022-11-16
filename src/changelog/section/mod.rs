@@ -7,7 +7,6 @@ pub enum Segment {
     User {
         markdown: String,
     },
-    Conventional(segment::Conventional),
     Details(Data<segment::Details>),
     Statistics(Data<segment::CommitStatistics>),
     Clippy(Data<segment::ThanksClippy>),
@@ -31,7 +30,7 @@ impl<T: PartialEq<T>> PartialEq<Data<T>> for Data<T> {
 impl Segment {
     pub fn is_read_only(&self) -> bool {
         match self {
-            Segment::User { .. } | Segment::Conventional { .. } => false,
+            Segment::User { .. } => false,
             Segment::Clippy(_) | Segment::Statistics(_) | Segment::Details(_) => true,
         }
     }
